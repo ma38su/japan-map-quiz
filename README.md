@@ -1,5 +1,9 @@
 # 日本地図クイズ
 
+[![Deploy to GitHub Pages](https://github.com/ma38su/japan-map-quiz/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/ma38su/japan-map-quiz/actions/workflows/deploy-pages.yml)
+
+公開ページ: [https://ma38su.github.io/japan-map-quiz/](https://ma38su.github.io/japan-map-quiz/)
+
 世界地図クイズから独立して開発する、都道府県学習用のWebアプリです。このディレクトリ単体で別リポジトリへ移動できます。
 
 ## 現在の範囲
