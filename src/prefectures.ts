@@ -38,52 +38,87 @@ function area(ring: Position[]) {
   }, 0)) / 2
 }
 
-function centerOf(ring: Position[]): Position {
-  const usable = ring.slice(0, -1)
-  return [
-    usable.reduce((sum, point) => sum + point[0], 0) / usable.length,
-    usable.reduce((sum, point) => sum + point[1], 0) / usable.length,
-  ]
+function pointInRing([x, y]: Position, ring: Position[]) {
+  let inside = false
+  for (let current = 0, previous = ring.length - 1; current < ring.length; previous = current++) {
+    const [currentX, currentY] = ring[current]
+    const [previousX, previousY] = ring[previous]
+    if ((currentY > y) !== (previousY > y) && x < (previousX - currentX) * (y - currentY) / (previousY - currentY) + currentX) inside = !inside
+  }
+  return inside
+}
+
+function polygonCentroid(ring: Position[]): Position {
+  let twiceArea = 0
+  let x = 0
+  let y = 0
+  for (let index = 0; index < ring.length - 1; index++) {
+    const [currentX, currentY] = ring[index]
+    const [nextX, nextY] = ring[index + 1]
+    const cross = currentX * nextY - nextX * currentY
+    twiceArea += cross
+    x += (currentX + nextX) * cross
+    y += (currentY + nextY) * cross
+  }
+  if (Math.abs(twiceArea) < Number.EPSILON) return ring[0] ?? [0, 0]
+  return [x / (3 * twiceArea), y / (3 * twiceArea)]
+}
+
+function distanceToSegment(point: Position, start: Position, end: Position) {
+  const dx = end[0] - start[0]
+  const dy = end[1] - start[1]
+  const lengthSquared = dx * dx + dy * dy
+  const ratio = lengthSquared ? Math.max(0, Math.min(1, ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / lengthSquared)) : 0
+  return Math.hypot(point[0] - (start[0] + ratio * dx), point[1] - (start[1] + ratio * dy))
+}
+
+export function representativePoint(ring: Position[]): Position {
+  const centroid = polygonCentroid(ring)
+  if (pointInRing(centroid, ring)) return centroid
+
+  const xs = ring.map(([x]) => x)
+  const ys = ring.map(([, y]) => y)
+  const minX = Math.min(...xs); const maxX = Math.max(...xs)
+  const minY = Math.min(...ys); const maxY = Math.max(...ys)
+  let best = ring[0] ?? [0, 0]
+  let bestDistance = -1
+  for (let row = 0; row <= 24; row++) for (let column = 0; column <= 24; column++) {
+    const candidate: Position = [minX + (maxX - minX) * column / 24, minY + (maxY - minY) * row / 24]
+    if (!pointInRing(candidate, ring)) continue
+    const edgeDistance = Math.min(...ring.slice(0, -1).map((point, index) => distanceToSegment(candidate, point, ring[index + 1])))
+    if (edgeDistance > bestDistance) { best = candidate; bestDistance = edgeDistance }
+  }
+  return best
 }
 
 const features = (geoJson as unknown as { features: GeoFeature[] }).features
+const NAMES = '北海道 青森県 岩手県 宮城県 秋田県 山形県 福島県 茨城県 栃木県 群馬県 埼玉県 千葉県 東京都 神奈川県 新潟県 富山県 石川県 福井県 山梨県 長野県 岐阜県 静岡県 愛知県 三重県 滋賀県 京都府 大阪府 兵庫県 奈良県 和歌山県 鳥取県 島根県 岡山県 広島県 山口県 徳島県 香川県 愛媛県 高知県 福岡県 佐賀県 長崎県 熊本県 大分県 宮崎県 鹿児島県 沖縄県'.split(' ')
 const READINGS = 'ほっかいどう あおもりけん いわてけん みやぎけん あきたけん やまがたけん ふくしまけん いばらきけん とちぎけん ぐんまけん さいたまけん ちばけん とうきょうと かながわけん にいがたけん とやまけん いしかわけん ふくいけん やまなしけん ながのけん ぎふけん しずおかけん あいちけん みえけん しがけん きょうとふ おおさかふ ひょうごけん ならけん わかやまけん とっとりけん しまねけん おかやまけん ひろしまけん やまぐちけん とくしまけん かがわけん えひめけん こうちけん ふくおかけん さがけん ながさきけん くまもとけん おおいたけん みやざきけん かごしまけん おきなわけん'.split(' ')
 
-export const PREFECTURES: Prefecture[] = features.map((feature, index) => {
+export const PREFECTURES: Prefecture[] = NAMES.map((name, index) => {
   const code = index + 1
+  const feature = features.find((candidate) => candidate.properties.P === name)
+  if (!feature) throw new Error(`都道府県データが見つかりません: ${name}`)
   const region = (Object.entries(REGION_CODES) as [Region, number[]][]).find(([, codes]) => codes.includes(code))?.[0] ?? '関東'
   const primary = [...feature.geometry.coordinates].sort((a, b) => area(b[0]) - area(a[0]))[0]?.[0] ?? []
-  return { code, name: feature.properties.P, reading: READINGS[index], region, polygons: feature.geometry.coordinates, center: centerOf(primary) }
+  return { code, name, reading: READINGS[index], region, polygons: feature.geometry.coordinates, center: representativePoint(primary) }
 })
 
-export function shuffle<T>(items: readonly T[]) {
-  const result = [...items]
-  for (let index = result.length - 1; index > 0; index--) {
-    const swap = Math.floor(Math.random() * (index + 1))
-    ;[result[index], result[swap]] = [result[swap], result[index]]
-  }
-  return result
+export const LEVELS: Record<Level, { label: string; labelRuby: string; descriptionRuby: string }> = {
+  elementary: {
+    label: '小学生向け',
+    labelRuby: '｜小学生向《しょうがくせいむ》け',
+    descriptionRuby: '｜小学校《しょうがっこう》の｜社会《しゃかい》で｜学《まな》ぶ、47｜都道府県《とどうふけん》の｜名前《なまえ》と｜場所《ばしょ》を｜覚《おぼ》えます。',
+  },
+  junior: {
+    label: '中学生向け',
+    labelRuby: '｜中学生向《ちゅうがくせいむ》け',
+    descriptionRuby: '｜同《おな》じ｜地方《ちほう》や｜近《ちか》くの｜県《けん》を｜見分《みわ》けて、47｜都道府県《とどうふけん》の｜位置《いち》を｜確実《かくじつ》にします。',
+  },
 }
 
-function distance(a: Prefecture, b: Prefecture) {
-  return Math.hypot(a.center[0] - b.center[0], a.center[1] - b.center[1])
-}
-
-export function createChoices(target: Prefecture, level: Level) {
-  const others = PREFECTURES.filter((prefecture) => prefecture.code !== target.code)
-  const ranked = level === 'junior'
-    ? [...others].sort((a, b) => Number(b.region === target.region) - Number(a.region === target.region) || distance(target, a) - distance(target, b))
-    : shuffle(others.filter((prefecture) => prefecture.region !== target.region))
-  return shuffle([target, ...ranked.slice(0, 3)])
-}
-
-export const LEVELS: Record<Level, { label: string; description: string }> = {
-  elementary: { label: '小学生向け', description: '小学校の社会で学ぶ、47都道府県の名前と場所を覚えます。' },
-  junior: { label: '中学生向け', description: '同じ地方や近くの県を見分けて、47都道府県の位置を確実にします。' },
-}
-
-export const QUESTION_KINDS: Record<QuestionKind, { label: string }> = {
-  mix: { label: 'おまかせミックス' },
-  'map-to-name': { label: '地図 → 都道府県名' },
-  'name-to-map': { label: '都道府県名 → 地図' },
+export const QUESTION_KINDS: Record<QuestionKind, { label: string; labelRuby: string }> = {
+  mix: { label: 'おまかせミックス', labelRuby: 'おまかせミックス' },
+  'map-to-name': { label: '地図 → 都道府県名', labelRuby: '｜地図《ちず》 → ｜都道府県名《とどうふけんめい》' },
+  'name-to-map': { label: '都道府県名 → 地図', labelRuby: '｜都道府県名《とどうふけんめい》 → ｜地図《ちず》' },
 }
