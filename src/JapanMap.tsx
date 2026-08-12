@@ -21,6 +21,31 @@ function pathFor(prefecture: Prefecture) {
   })).join('')
 }
 
+function ringArea(ring: Position[]) {
+  return Math.abs(ring.reduce((sum, [x, y], index) => {
+    const [nextX, nextY] = ring[(index + 1) % ring.length]
+    return sum + x * nextY - nextX * y
+  }, 0))
+}
+
+function focusViewBox(prefecture: Prefecture) {
+  const primaryRing = prefecture.polygons
+    .map((polygon) => polygon[0] ?? [])
+    .sort((a, b) => ringArea(b) - ringArea(a))[0]
+  const points = primaryRing.filter(([, latitude]) => prefecture.code === 47 || latitude >= 30).map(project)
+  const xs = points.map(([x]) => x)
+  const ys = points.map(([, y]) => y)
+  const minX = Math.min(...xs); const maxX = Math.max(...xs)
+  const minY = Math.min(...ys); const maxY = Math.max(...ys)
+  const height = Math.max(90, maxX - minX, maxY - minY) * 1.35
+  const width = height * 600 / 560
+  const centerX = (minX + maxX) / 2
+  const centerY = (minY + maxY) / 2
+  const x = Math.max(0, Math.min(600 - width, centerX - width / 2))
+  const y = Math.max(0, Math.min(560 - height, centerY - height / 2))
+  return `${x} ${y} ${width} ${height}`
+}
+
 function bounds(prefecture: Prefecture) {
   const points = prefecture.polygons.flatMap((polygon) => polygon[0] ?? []).filter(([, latitude]) => prefecture.code === 47 || latitude >= 30).map(project)
   return {
@@ -50,7 +75,7 @@ export default function JapanMap({ target, choices = [] }: { target?: Prefecture
     placements.set(spec.prefecture.code, label)
     occupied.push(label)
   }
-  return <svg className="japan-map" viewBox="0 0 600 560" role="img" aria-label="47都道府県の境界を表示した日本地図">
+  return <svg className="japan-map" viewBox={target ? focusViewBox(target) : '0 0 600 560'} role="img" aria-label={target ? `色がついた${target.name}周辺の拡大地図` : '47都道府県の境界を表示した日本地図'}>
     <rect width="600" height="560" fill="#567c89" />
     <g className="map-grid">
       {[150, 300, 450].map((x) => <line key={`x${x}`} x1={x} y1="0" x2={x} y2="560" />)}
