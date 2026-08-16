@@ -1,6 +1,11 @@
 # 日本地図クイズ
 
 [![Deploy to GitHub Pages](https://github.com/ma38su/japan-map-quiz/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/ma38su/japan-map-quiz/actions/workflows/deploy-pages.yml)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-%E3%81%82%E3%81%9D%E3%81%B6-2ea44f?logo=github)](https://ma38su.github.io/japan-map-quiz/)
+[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=20232a)](https://react.dev/)
+[![TypeScript 6](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite 8](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
 
 公開ページ: [https://ma38su.github.io/japan-map-quiz/](https://ma38su.github.io/japan-map-quiz/)
 
