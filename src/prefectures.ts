@@ -2,7 +2,7 @@ import geoJson from './data/prefectures.json'
 
 export type Region = '北海道' | '東北' | '関東' | '中部' | '近畿' | '中国' | '四国' | '九州・沖縄'
 export type Level = 'elementary' | 'junior'
-export type QuestionKind = 'mix' | 'map-to-name' | 'name-to-map'
+export type QuestionKind = 'mix' | 'map-to-name' | 'name-to-map' | 'capital'
 export type Position = [number, number]
 export type Polygon = Position[][]
 
@@ -10,6 +10,8 @@ export type Prefecture = {
   code: number
   name: string
   reading: string
+  capital: string
+  capitalReading: string
   region: Region
   polygons: Polygon[]
   center: Position
@@ -94,6 +96,8 @@ export function representativePoint(ring: Position[]): Position {
 const features = (geoJson as unknown as { features: GeoFeature[] }).features
 const NAMES = '北海道 青森県 岩手県 宮城県 秋田県 山形県 福島県 茨城県 栃木県 群馬県 埼玉県 千葉県 東京都 神奈川県 新潟県 富山県 石川県 福井県 山梨県 長野県 岐阜県 静岡県 愛知県 三重県 滋賀県 京都府 大阪府 兵庫県 奈良県 和歌山県 鳥取県 島根県 岡山県 広島県 山口県 徳島県 香川県 愛媛県 高知県 福岡県 佐賀県 長崎県 熊本県 大分県 宮崎県 鹿児島県 沖縄県'.split(' ')
 const READINGS = 'ほっかいどう あおもりけん いわてけん みやぎけん あきたけん やまがたけん ふくしまけん いばらきけん とちぎけん ぐんまけん さいたまけん ちばけん とうきょうと かながわけん にいがたけん とやまけん いしかわけん ふくいけん やまなしけん ながのけん ぎふけん しずおかけん あいちけん みえけん しがけん きょうとふ おおさかふ ひょうごけん ならけん わかやまけん とっとりけん しまねけん おかやまけん ひろしまけん やまぐちけん とくしまけん かがわけん えひめけん こうちけん ふくおかけん さがけん ながさきけん くまもとけん おおいたけん みやざきけん かごしまけん おきなわけん'.split(' ')
+const CAPITALS = '札幌市 青森市 盛岡市 仙台市 秋田市 山形市 福島市 水戸市 宇都宮市 前橋市 さいたま市 千葉市 新宿区 横浜市 新潟市 富山市 金沢市 福井市 甲府市 長野市 岐阜市 静岡市 名古屋市 津市 大津市 京都市 大阪市 神戸市 奈良市 和歌山市 鳥取市 松江市 岡山市 広島市 山口市 徳島市 高松市 松山市 高知市 福岡市 佐賀市 長崎市 熊本市 大分市 宮崎市 鹿児島市 那覇市'.split(' ')
+const CAPITAL_READINGS = 'さっぽろし あおもりし もりおかし せんだいし あきたし やまがたし ふくしまし みとし うつのみやし まえばしし さいたまし ちばし しんじゅくく よこはまし にいがたし とやまし かなざわし ふくいし こうふし ながのし ぎふし しずおかし なごやし つし おおつし きょうとし おおさかし こうべし ならし わかやまし とっとりし まつえし おかやまし ひろしまし やまぐちし とくしまし たかまつし まつやまし こうちし ふくおかし さがし ながさきし くまもとし おおいたし みやざきし かごしまし なはし'.split(' ')
 
 export const PREFECTURES: Prefecture[] = NAMES.map((name, index) => {
   const code = index + 1
@@ -101,7 +105,7 @@ export const PREFECTURES: Prefecture[] = NAMES.map((name, index) => {
   if (!feature) throw new Error(`都道府県データが見つかりません: ${name}`)
   const region = (Object.entries(REGION_CODES) as [Region, number[]][]).find(([, codes]) => codes.includes(code))?.[0] ?? '関東'
   const primary = [...feature.geometry.coordinates].sort((a, b) => area(b[0]) - area(a[0]))[0]?.[0] ?? []
-  return { code, name, reading: READINGS[index], region, polygons: feature.geometry.coordinates, center: representativePoint(primary) }
+  return { code, name, reading: READINGS[index], capital: CAPITALS[index], capitalReading: CAPITAL_READINGS[index], region, polygons: feature.geometry.coordinates, center: representativePoint(primary) }
 })
 
 export const LEVELS: Record<Level, { label: string; labelRuby: string; descriptionRuby: string }> = {
@@ -121,4 +125,5 @@ export const QUESTION_KINDS: Record<QuestionKind, { label: string; labelRuby: st
   mix: { label: 'おまかせミックス', labelRuby: 'おまかせミックス' },
   'map-to-name': { label: '地図 → 都道府県名', labelRuby: '｜地図《ちず》 → ｜都道府県名《とどうふけんめい》' },
   'name-to-map': { label: '都道府県名 → 地図', labelRuby: '｜都道府県名《とどうふけんめい》 → ｜地図《ちず》' },
+  capital: { label: '地図 → 県庁所在地', labelRuby: '｜地図《ちず》 → ｜県庁所在地《けんちょうしょざいち》' },
 }

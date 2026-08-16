@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react'
+import { Minus, Plus, RotateCcw } from 'lucide-react'
 import type { Prefecture, Position } from './prefectures'
 import { PREFECTURES } from './prefectures'
 
@@ -55,6 +57,43 @@ function bounds(prefecture: Prefecture) {
 }
 
 export default function JapanMap({ target, choices = [] }: { target?: Prefecture; choices?: Prefecture[] }) {
+  const initialViewBox = useMemo(() => target ? focusViewBox(target).split(' ').map(Number) : [0, 0, 600, 560], [target])
+  const [viewBox, setViewBox] = useState(initialViewBox)
+  const drag = useRef<{ x: number; y: number; viewBox: number[] } | null>(null)
+
+  useEffect(() => setViewBox(initialViewBox), [initialViewBox])
+
+  function zoom(factor: number, anchorX = .5, anchorY = .5) {
+    setViewBox(([x, y, width, height]) => {
+      const nextWidth = Math.max(55, Math.min(600, width * factor))
+      const nextHeight = Math.max(52, Math.min(560, height * factor))
+      const nextX = Math.max(0, Math.min(600 - nextWidth, x + (width - nextWidth) * anchorX))
+      const nextY = Math.max(0, Math.min(560 - nextHeight, y + (height - nextHeight) * anchorY))
+      return [nextX, nextY, nextWidth, nextHeight]
+    })
+  }
+
+  function onWheel(event: ReactWheelEvent<SVGSVGElement>) {
+    event.preventDefault()
+    const bounds = event.currentTarget.getBoundingClientRect()
+    zoom(event.deltaY > 0 ? 1.16 : .86, (event.clientX - bounds.left) / bounds.width, (event.clientY - bounds.top) / bounds.height)
+  }
+
+  function onPointerDown(event: ReactPointerEvent<SVGSVGElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    drag.current = { x: event.clientX, y: event.clientY, viewBox }
+  }
+
+  function onPointerMove(event: ReactPointerEvent<SVGSVGElement>) {
+    if (!drag.current) return
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const [x, y, width, height] = drag.current.viewBox
+    const nextX = x - (event.clientX - drag.current.x) * width / bounds.width
+    const nextY = y - (event.clientY - drag.current.y) * height / bounds.height
+    setViewBox([Math.max(0, Math.min(600 - width, nextX)), Math.max(0, Math.min(560 - height, nextY)), width, height])
+  }
+
+  function stopDragging() { drag.current = null }
   const specs = choices.map((prefecture, index) => {
     const point = project(prefecture.center)
     const size = bounds(prefecture)
@@ -75,7 +114,8 @@ export default function JapanMap({ target, choices = [] }: { target?: Prefecture
     placements.set(spec.prefecture.code, label)
     occupied.push(label)
   }
-  return <svg className="japan-map" viewBox={target ? focusViewBox(target) : '0 0 600 560'} role="img" aria-label={target ? `色がついた${target.name}周辺の拡大地図` : '47都道府県の境界を表示した日本地図'}>
+  return <div className="map-viewport">
+    <svg className="japan-map" viewBox={viewBox.join(' ')} role="img" aria-label={target ? `色がついた${target.name}周辺の拡大地図。拡大縮小と移動ができます` : '47都道府県の境界を表示した日本地図。拡大縮小と移動ができます'} onWheel={onWheel} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={stopDragging} onPointerCancel={stopDragging}>
     <rect width="600" height="560" fill="#567c89" />
     <g className="map-grid">
       {[150, 300, 450].map((x) => <line key={`x${x}`} x1={x} y1="0" x2={x} y2="560" />)}
@@ -98,5 +138,12 @@ export default function JapanMap({ target, choices = [] }: { target?: Prefecture
         <text x={label[0]} y={label[1] + .5} fill={COLORS[index].text} textAnchor="middle" dominantBaseline="middle">{String.fromCharCode(65 + index)}</text>
       </g>
     })}
-  </svg>
+    </svg>
+    <div className="map-controls" aria-label="地図の操作">
+      <button onClick={() => zoom(.72)} aria-label="地図を拡大"><Plus size={17} /></button>
+      <button onClick={() => zoom(1.38)} aria-label="地図を縮小"><Minus size={17} /></button>
+      <button onClick={() => setViewBox(initialViewBox)} aria-label="地図の表示を元に戻す"><RotateCcw size={15} /></button>
+    </div>
+    <span className="map-help">ドラッグで移動・ホイールで拡大縮小</span>
+  </div>
 }

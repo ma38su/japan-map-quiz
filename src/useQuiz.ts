@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createChoices, nextUnusedPrefecture, resolveKind, type ActiveKind } from './quizEngine'
+import { createCapitalChoices, createChoices, nextUnusedPrefecture, resolveKind, type ActiveKind, type CapitalChoice } from './quizEngine'
 import { loadProgress, saveProgress } from './progress'
 import { type Level, type Prefecture, type QuestionKind } from './prefectures'
 
@@ -15,6 +15,8 @@ export function useQuiz() {
   const [activeKind, setActiveKind] = useState<ActiveKind>('map-to-name')
   const [target, setTarget] = useState<Prefecture | null>(null)
   const [choices, setChoices] = useState<Prefecture[]>([])
+  const [capitalChoices, setCapitalChoices] = useState<CapitalChoice[]>([])
+  const [selectedCapital, setSelectedCapital] = useState<string | null>(null)
   const [selected, setSelected] = useState<number | null>(null)
   const [result, setResult] = useState<Result>('idle')
   const [round, setRound] = useState(EMPTY_ROUND)
@@ -31,8 +33,10 @@ export function useQuiz() {
   function showQuestion(prefecture: Prefecture, nextKind: ActiveKind, used: number[], choiceLevel = level) {
     setTarget(prefecture)
     setActiveKind(nextKind)
-    setChoices(createChoices(prefecture, choiceLevel))
+    setChoices(nextKind === 'capital' ? [] : createChoices(prefecture, choiceLevel, Math.random, nextKind))
+    setCapitalChoices(nextKind === 'capital' ? createCapitalChoices(prefecture) : [])
     setSelected(null)
+    setSelectedCapital(null)
     setResult('idle')
     setComplete(false)
     setRound((current) => ({ ...current, used }))
@@ -53,6 +57,7 @@ export function useQuiz() {
     if (round.answered >= 10) {
       setTarget(null)
       setChoices([])
+      setCapitalChoices([])
       setComplete(true)
       return
     }
@@ -81,17 +86,30 @@ export function useQuiz() {
     }))
   }
 
+  function answerCapital(choice: CapitalChoice) {
+    if (!target || result !== 'idle') return
+    const isCorrect = choice.name === target.capital
+    setSelectedCapital(choice.id)
+    setResult(isCorrect ? 'correct' : 'wrong')
+    setRound((current) => ({ ...current, answered: current.answered + 1, correct: current.correct + Number(isCorrect) }))
+    setProgress((current) => ({
+      scores: { ...current.scores, [level]: { correct: current.scores[level].correct + Number(isCorrect), total: current.scores[level].total + 1 } },
+      mistakes: isCorrect ? current.mistakes : { ...current.mistakes, [target.code]: (current.mistakes[target.code] ?? 0) + 1 },
+    }))
+  }
+
   function resetSettings() {
     setTarget(null)
     setChoices([])
+    setCapitalChoices([])
     setComplete(false)
     setView('home')
   }
 
   return {
-    view, setView, level, setLevel, kind, setKind, activeKind, target, choices,
+    view, setView, level, setLevel, kind, setKind, activeKind, target, choices, capitalChoices, selectedCapital,
     selected, result, round, complete, progress, total,
-    start, nextQuestion, answer, resetSettings,
+    start, nextQuestion, answer, answerCapital, resetSettings,
   }
 }
 
